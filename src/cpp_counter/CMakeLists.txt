@@ -48,6 +48,10 @@ if(BUILD_TESTING)
   if(TARGET test_counter)
     target_link_libraries(test_counter "${cpp_typesupport_target}")
   endif()
+
+  # 端到端：真实起 talker + listener，验证 DDS 收发与正常退出
+  find_package(launch_testing_ament_cmake REQUIRED)
+  add_launch_test(test/test_counter_launch.py TIMEOUT 90)
 endif()
 
 ament_package()

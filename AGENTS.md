@@ -118,7 +118,17 @@ pwsh -NoProfile -File 'D:\deepseek project\scripts\Ros2-Test.ps1'
 pwsh -NoProfile -File 'D:\deepseek project\scripts\Ros2-Test.ps1' -PackageSelect cpp_counter
 ```
 
-当前基线：`cpp_counter`（gtest 2 + cpplint 4 + lint_cmake 1 + xmllint 1，cppcheck 因未安装而 skipped）、`py_hello`（pytest 2）→ **19 tests / 0 failures / 4 skipped**。
+当前基线：**27 tests / 0 failures / 4 skipped**（约 14 秒）。构成：
+
+| 套件 | 数量 | 说明 |
+|---|---|---|
+| `test_counter.gtest` | 2 | 生成类型的字段默认值 / 往返 |
+| `test_counter_launch.py` | 3 | **端到端**：真实起 talker + listener，断言 5/5 收发与退出码 |
+| `cpplint` / `lint_cmake` / `xmllint` / `flake8` / `pep257` | 4+1+1+1+1 | lint（`cppcheck` 4 条因未安装而 skipped） |
+| `py_hello` pytest | 2 | 入口函数行为 |
+
+`src\` 里的 Python 走 ROS 风格（flake8 要单引号、pep257 要英文 docstring），由 `colcon test` 检查；
+根目录 ruff 只管 `tools\` 与 `tests\`（见 `pyproject.toml` 的 `extend-exclude`）。
 
 **CI 门禁**（一条命令 = 预检 → 构建 → colcon test → ruff/pytest，全跑完再汇总；退出码即结论）
 
@@ -167,7 +177,7 @@ pwsh -NoProfile -File 'D:\deepseek project\scripts\30-Verify-Install.ps1'
 - ✅ 长路径已开启，MSVC 就绪
 - ✅ Python：`.venv` + 适配层就位，`python -m pytest -q` 3 passed，`ruff check` / `format --check` 全绿
 - ✅ C++：`src\cpp_counter` 构建成功（自定义 msg + 发布/订阅），双进程端到端 5/5 消息收到
-- ✅ 测试：`Ros2-Test.ps1` → 19 tests / 0 failures / 4 skipped（cppcheck 未安装）
+- ✅ 测试：`Ros2-Test.ps1` → 27 tests / 0 failures / 4 skipped（含 launch_testing 端到端 3 条）
 - ✅ CI：`tools\ci\Run-Ci.ps1` 全量门禁 4/4 阶段 PASS（约 22 秒），GitHub Actions 配置就位（等 runner）
 - 待办：**无**
 
@@ -210,7 +220,10 @@ pwsh -NoProfile -File .\tools\Setup-Ros2PyEnv.ps1 -Check
 
 **已知边界**：
 
-- 受限会话里 Fast DDS 建共享内存段会被拒，自动回退 UDP 并打 `RTPS_TRANSPORT_SHM Error` —— 噪音，不代表环境坏。
+- Fast DDS 的共享内存传输在 Windows 上建段会失败并回退 UDP；它的错误串是 **GBK**，会让按 UTF-8 解
+  码输出的工具（典型：`launch_testing`）直接抛 `UnicodeDecodeError`。所以 `tools\ros2-env.bat` 统一设
+  `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`（行为等价，少噪音、少坑）。Python 适配层没设这个变量，裸 `python`
+  跑节点时仍可能看到 `RTPS_TRANSPORT_SHM Error` —— 噪音，不影响功能。
 - `ros2` CLI、多节点联调仍建议走 `Ros2-Shell.ps1` / `Ros2-Run.ps1`：那套还额外设了 `ROS_DOMAIN_ID`、`RMW_IMPLEMENTATION` 等。
 - 别在 `lyrical` 里建 venv（SDK 不可重定位）；`.venv` 必须带 `--system-site-packages`，否则看不到 SDK 自带的 pytest/mypy/numpy。
 
@@ -221,7 +234,8 @@ pwsh -NoProfile -File .\tools\Setup-Ros2PyEnv.ps1 -Check
 1. **把 CI 接到远端**：仓库已 `git init` + 首次提交（本地 `main`，无远端）。下一步是建远端（GitHub/GitLab）、
    `git remote add` + `push`，再注册 self-hosted runner（标签 `windows,ros2-lyrical`）；之后 push/PR 自动跑
    `tools\ci\Run-Ci.ps1`。runner 要求见 [`tools/ci/README.md`](tools/ci/README.md)。
-2. **补 launch 级测试**：用 `launch_testing` 起真实节点断言话题，把现在的"手工双进程验证"固化成 CI 用例。
+2. **扩展 launch_testing**：现在只断言"收到最后一条 + 干净退出"，可以再加消息内容断言、QoS 场景、
+   "listener 晚加入"的用例（验证丢包策略），把运行时行为也纳入门禁。
 3. **确认是否需要仿真**：Gazebo / 完整 `desktop` 包在此 SDK 里没有。需要就另开 WSL2 分支（Ubuntu 24.04 + `ros-jazzy-desktop`），**不要**在 Windows 原生上硬凑。
 4. **清理缓存**：`D:\ros2\_cache`（0.51 GB）确认不再重装后可以删。
 5. **装 cppcheck**：那 4 个 skipped 就能变实跑（`pixi global install cppcheck` 或 conda）。
@@ -240,5 +254,6 @@ pwsh -NoProfile -File .\tools\Setup-Ros2PyEnv.ps1 -Check
 | 2026-10-30 | 修 C++ 运行期环境：新增 `tools\ros2-env.bat`（SDK + 工作区 overlay + `<SDK>\bin`、`<ws>\install\bin` 进 PATH），`Ros2-Run/Shell/Build/Test` 统一改用它；`ROS_LOG_DIR` 固定到 `ws\.ros\log`（本机 C: 路径会让 `rclcpp::init` 崩）。复测：`ros2 run` 双进程 5/5 消息、构建与测试全绿 |
 | 2026-10-30 | 接 CI：新增 `tools\ci\Run-Ci.ps1`（预检→构建→测试→ruff/pytest，全跑完再汇总，退出码即结论，报告落 `log\ci\`）+ `.github\workflows\ci.yml`（self-hosted Windows runner）+ `tools\ci\README.md`；支持 `-Workspace` 让 checkout 到任意目录也能跑。本机全量 4/4 PASS，22 秒 |
 | 2026-10-30 | 初始化 git 仓库（`main`，本地身份 `dev <dev@example.com>`，换行策略见 `.gitattributes`），首次提交 33 个文件；CI 加 `-Bootstrap`，全新 checkout 会自动建 `.venv`；**修 `Ros2-Test.ps1` 漏写 `colcon`**（命令实际是 `test --merge-install`，测试从未真正执行，之前看到的 19 tests 是旧结果），并加"没有 test_* 日志即失败"防止 CI 假绿 |
+| 2026-10-30 | 加 `launch_testing` 端到端用例：`cpp_counter/test/test_counter_launch.py`（listener 先起、2 s 后再起 talker，断言 5/5 收发 + 退出码），接入 `add_launch_test`；环境里加 `FASTDDS_BUILTIN_TRANSPORTS=UDPv4`——Windows 上 SHM 建段失败会输出 **GBK** 错误串，把按 UTF-8 解码的 `launch_testing` 直接搞崩；ruff 只管 `tools\`/`tests\`，`src\` 交给 ament_flake8/pep257。基线 19 → **27 tests / 0 failures** |
 
 > 后续每次动过环境、改过构建方式、加了重要包，都在这里补一行 —— 下一个接手的人（或下一个你）靠这个对齐。

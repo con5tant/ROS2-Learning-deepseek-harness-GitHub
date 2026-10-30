@@ -20,6 +20,12 @@ if defined ROS2_WORKSPACE set "ROS2_WS_BIN=%ROS2_WORKSPACE%\install\bin"
 
 set "PATH=%ROS2_SDK%bin;%ROS2_WS_BIN%;%PATH%"
 
+rem Windows: Fast DDS shared-memory transport usually fails to create its segment here. It then
+rem falls back to UDP anyway, but writes a GBK-encoded error line to stderr ("access denied" in
+rem the ANSI code page), which breaks tools that decode captured output as UTF-8 - launch_testing
+rem crashes on it. UDPv4 only: same result, no noise.
+if not defined FASTDDS_BUILTIN_TRANSPORTS set "FASTDDS_BUILTIN_TRANSPORTS=UDPv4"
+
 rem The sourced setup scripts often leave a non-zero ERRORLEVEL behind; the callers chain with
 rem && , so force success here or every following command would be skipped.
 exit /b 0

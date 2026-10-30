@@ -5,8 +5,9 @@
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src"]
-extend-exclude = [".venv", "build", "install", "log"]
+# src\ 里的 ROS 包按 ROS 风格走（ament_flake8 要单引号、pep257 要英文 docstring），
+# 由 colcon test 检查；根目录的 ruff 只管工作区级 Python（tools\ / tests\）。
+extend-exclude = [".venv", "build", "install", "log", "src"]
 
 [tool.ruff.lint]
 select = [
