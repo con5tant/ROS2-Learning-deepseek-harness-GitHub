@@ -33,6 +33,7 @@ pwsh -NoProfile -File 'D:\deepseek project\scripts\Ros2-Build.ps1'
 ```
 
 > 脚本不在本目录，在 `D:\deepseek project\scripts\`。这些是绝对路径，从任何目录调用都行。
+> **git 不在 PATH 上**，在 pixi 环境里：`D:\ros2\lyrical\.pixi\envs\default\Library\cmd\git.exe`（2.55）。
 
 ---
 
@@ -217,8 +218,9 @@ pwsh -NoProfile -File .\tools\Setup-Ros2PyEnv.ps1 -Check
 
 ## 8. 下一步建议（按性价比排序）
 
-1. **把 CI 真正跑起来**：`git init` + 建远端 + 注册 self-hosted runner（标签 `windows,ros2-lyrical`），
-   之后每次 push/PR 自动跑 `tools\ci\Run-Ci.ps1`；runner 要求见 [`tools/ci/README.md`](tools/ci/README.md)。
+1. **把 CI 接到远端**：仓库已 `git init` + 首次提交（本地 `main`，无远端）。下一步是建远端（GitHub/GitLab）、
+   `git remote add` + `push`，再注册 self-hosted runner（标签 `windows,ros2-lyrical`）；之后 push/PR 自动跑
+   `tools\ci\Run-Ci.ps1`。runner 要求见 [`tools/ci/README.md`](tools/ci/README.md)。
 2. **补 launch 级测试**：用 `launch_testing` 起真实节点断言话题，把现在的"手工双进程验证"固化成 CI 用例。
 3. **确认是否需要仿真**：Gazebo / 完整 `desktop` 包在此 SDK 里没有。需要就另开 WSL2 分支（Ubuntu 24.04 + `ros-jazzy-desktop`），**不要**在 Windows 原生上硬凑。
 4. **清理缓存**：`D:\ros2\_cache`（0.51 GB）确认不再重装后可以删。
@@ -237,5 +239,6 @@ pwsh -NoProfile -File .\tools\Setup-Ros2PyEnv.ps1 -Check
 | 2026-10-30 | 建 `colcon test` 基线：`Ros2-Test.ps1`（新增）+ py_hello 的 pytest 用例 → 19 tests / 0 failures / 4 skipped |
 | 2026-10-30 | 修 C++ 运行期环境：新增 `tools\ros2-env.bat`（SDK + 工作区 overlay + `<SDK>\bin`、`<ws>\install\bin` 进 PATH），`Ros2-Run/Shell/Build/Test` 统一改用它；`ROS_LOG_DIR` 固定到 `ws\.ros\log`（本机 C: 路径会让 `rclcpp::init` 崩）。复测：`ros2 run` 双进程 5/5 消息、构建与测试全绿 |
 | 2026-10-30 | 接 CI：新增 `tools\ci\Run-Ci.ps1`（预检→构建→测试→ruff/pytest，全跑完再汇总，退出码即结论，报告落 `log\ci\`）+ `.github\workflows\ci.yml`（self-hosted Windows runner）+ `tools\ci\README.md`；支持 `-Workspace` 让 checkout 到任意目录也能跑。本机全量 4/4 PASS，22 秒 |
+| 2026-10-30 | 初始化 git 仓库（`main`，本地身份 `dev <dev@example.com>`，换行策略见 `.gitattributes`），首次提交 33 个文件；CI 加 `-Bootstrap`，全新 checkout 会自动建 `.venv`；**修 `Ros2-Test.ps1` 漏写 `colcon`**（命令实际是 `test --merge-install`，测试从未真正执行，之前看到的 19 tests 是旧结果），并加"没有 test_* 日志即失败"防止 CI 假绿 |
 
 > 后续每次动过环境、改过构建方式、加了重要包，都在这里补一行 —— 下一个接手的人（或下一个你）靠这个对齐。
