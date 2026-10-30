@@ -157,8 +157,19 @@ Write-Ok $PthFile
 # ---------------------------------------------------------------- 工具链
 if (-not $SkipTools) {
     Write-Step '安装 ruff / pyright（已装则跳过）'
-    & $VenvPython -m pip install --disable-pip-version-check -q --upgrade ruff pyright
-    if ($LASTEXITCODE -ne 0) { Write-Warn2 'pip 安装失败（离线？可用 -SkipTools 跳过）' } else { Write-Ok 'ruff / pyright 就绪' }
+    # 直连 PyPI 在这类网络下经常超时并把脚本卡很久，所以：短超时 + 失败换镜像。
+    $pipArgs = @('-m', 'pip', 'install', '--disable-pip-version-check', '-q',
+        '--timeout', '15', '--retries', '1', '--upgrade', 'ruff', 'pyright')
+    & $VenvPython @pipArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn2 '直连 PyPI 失败，改用清华镜像重试'
+        & $VenvPython @pipArgs -i 'https://pypi.tuna.tsinghua.edu.cn/simple'
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warn2 'pip 安装失败（离线？可用 -SkipTools 跳过）'
+    } else {
+        Write-Ok 'ruff / pyright 就绪'
+    }
 }
 
 # ---------------------------------------------------------------- 自检
