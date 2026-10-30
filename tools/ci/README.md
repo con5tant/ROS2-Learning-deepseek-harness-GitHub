@@ -56,3 +56,58 @@ ROS 2 Lyrical 的 Windows 发行版是 4.15 GB 的官方 zip + pixi 环境，每
 3. 结果写进 Job Summary，并把 `log/ci/**` 与 `build/**/test_results/**` 作为 artifact 上传（保留 14 天）。
 
 > 没配 runner 之前这个 workflow 会一直排队，属预期；本地 `Run-Ci.ps1` 不受影响。
+
+## 排障：job 一直 queued / runner 连不上
+
+这台机器到 GitHub Actions 控制面的长连接不稳定，典型症状：
+
+- 网页上 job 停在 `queued`，但 runner 进程活着；
+- `_diag\Runner_*.log` 反复出现
+  `BrokerServer … ResponseEnded`、`SocketException (995)`、`Retrying until reconnected`；
+- 偶尔出现 `Attempt 1 of POST … Socket Error: TimedOut`，随后又接上（那是重试，不是失败）。
+
+原因是 runner 靠一条长轮询连接接收任务：连接一断，GitHub 就把它判为离线，任务只能排队。
+
+### 一键重启（推荐）
+
+```powershell
+pwsh -NoProfile -File .\tools\ci\Restart-Runner.ps1            # 重启并等它真的连上
+pwsh -NoProfile -File .\tools\ci\Restart-Runner.ps1 -Trigger   # 连上后立刻推空提交触发
+```
+
+脚本会杀掉旧 `Runner.Listener`、重启 `run.cmd`、轮询日志直到 `Listening for Jobs`；
+带 `-Trigger` 时紧接着推一个空提交，尽量让任务落在"连接还热"的窗口里。
+
+### 手工等价操作
+
+```powershell
+Get-Process Runner.Listener -EA 0 | Stop-Process -Force
+Start-Process cmd -ArgumentList '/c','run.cmd' -WorkingDirectory 'D:\actions-runner' -WindowStyle Hidden
+# 日志出现 Listening for Jobs 才算连上
+Get-Content (Get-ChildItem 'D:\actions-runner\_diag\Runner_*.log' | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName -Tail 5
+```
+
+卡住的 run 先在网页上 **Cancel**，否则队列会堆着。
+
+### 根治：给 runner 挂代理
+
+```powershell
+$env:HTTPS_PROXY = 'http://127.0.0.1:7890'   # 换成实际代理
+$env:HTTP_PROXY  = $env:HTTPS_PROXY
+Start-Process cmd -ArgumentList '/c','run.cmd' -WorkingDirectory 'D:\actions-runner' -WindowStyle Hidden
+```
+
+### 开机自启（需管理员）
+
+```powershell
+cd D:\actions-runner
+.\svc.cmd install
+.\svc.cmd start
+```
+
+默认用隐藏窗口的前台进程跑，**重启机器就没了**。
+
+### 已知的一次成功记录
+
+首次接入时 `run 41042136979` 在 runner 上完整跑通（构建 60.6 s / 测试 16.7 s / Python 98.2 s，4/4 PASS），
+唯一失败的是 artifact 上传（Azure 端点 `ECONNRESET`），已用 `continue-on-error` 处理。
