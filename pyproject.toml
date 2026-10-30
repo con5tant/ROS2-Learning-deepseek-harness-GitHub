@@ -1,0 +1,44 @@
+# 工作区级 Python 工具配置（ruff / pytest）。只给工具读，不用于打包发布。
+# pyright/Pylance 的配置在 pyrightconfig.json（单一来源，避免两处写死路径）。
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+extend-exclude = [".venv", "build", "install", "log"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # bugbear
+    "SIM", # simplify
+    "RUF", # ruff 自有规则
+]
+ignore = [
+    "E501",    # 行宽交给 formatter
+    "B008",    # ROS launch 文件常用函数调用做默认值
+    "RUF001",  # 中文注释/文档里的全角标点（：，（））是刻意的
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# ROS 的 setup.py 会把 setuptools.setup() 写在模块级，天然有副作用
+"**/setup.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+minversion = "7.0"
+# 根目录 pytest 只跑 tests\：各包自己的用例交给 colcon test（那套环境才装得对）
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"

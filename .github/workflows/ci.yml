@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: 构建 + 测试 + 静态检查
+    # 需要一台按 AGENTS.md 装好 ROS 2 Lyrical 的 Windows self-hosted runner：
+    #   - SDK:      D:\ros2\lyrical         （4.15 GB 官方二进制 + pixi，不适合每次现装）
+    #   - 项目脚本: D:\deepseek project\scripts
+    # 注册时打标签：--labels self-hosted,windows,ros2-lyrical
+    # 详见 tools/ci/README.md
+    runs-on: [self-hosted, windows, ros2-lyrical]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 门禁（构建 → colcon test → ruff/pytest）
+        shell: pwsh
+        env:
+          ROS2_CI_CONFIG: D:\deepseek project\config\ros2.config.psd1
+        run: |
+          pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Workspace '${{ github.workspace }}'
+        # Run-Ci.ps1 失败即返回非 0，本步骤自动标红，不必额外判断
+
+      - name: 结果写入 Job Summary
+        if: always()
+        shell: pwsh
+        run: |
+          $latest = Get-ChildItem -Path .\log\ci -Filter summary.md -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($latest) {
+            Get-Content -LiteralPath $latest.FullName -Encoding utf8 |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+          else {
+            '没有 CI 报告（预检可能就失败了），请看上一步的日志。' |
+              Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: 上传报告与测试结果
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: |
+            log/ci/**
+            build/**/test_results/**
+          if-no-files-found: warn
+          retention-days: 14

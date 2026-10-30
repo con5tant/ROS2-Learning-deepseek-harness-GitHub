@@ -1,0 +1,12 @@
+{
+  "//": "为 pyright CLI 提供入口配置；Pylance 优先读 pyproject.toml 的 [tool.pyright]。",
+  "include": ["src"],
+  "exclude": [".venv", "build", "install", "log"],
+  "extraPaths": ["D:\\ros2\\lyrical\\Lib\\site-packages"],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning"
+}

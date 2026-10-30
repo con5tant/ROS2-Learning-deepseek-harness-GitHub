@@ -1,0 +1,46 @@
+{
+  // 解释器：工作区自带的 .venv（基于 SDK 的 Python 3.12，带 ROS 适配层）
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  // 让 Pylance 静态看到 SDK 里的 rclpy / *_msgs（运行时由 ros2py_bootstrap 负责）
+  "python.analysis.extraPaths": ["D:\\ros2\\lyrical\\Lib\\site-packages"],
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.indexing": true,
+
+  // 保存时格式化 + 自动整理 import（ruff）
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit",
+      "source.fixAll.ruff": "explicit"
+    }
+  },
+
+  // 测试
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["src"],
+
+  // 终端里默认注入的环境变量（与 Ros2-Shell.ps1 保持一致的最小集）
+  "terminal.integrated.env.windows": {
+    "PYTHONUTF8": "1",
+    "ROS_DOMAIN_ID": "0"
+  },
+
+  // 别让搜索/监视被构建产物拖慢
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/build/**": true,
+    "**/install/**": true,
+    "**/log/**": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/build": true,
+    "**/install": true,
+    "**/log": true
+  },
+  "files.encoding": "utf8"
+}

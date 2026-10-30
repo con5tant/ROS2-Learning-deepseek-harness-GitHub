@@ -1,0 +1,14 @@
+# 统一换行：仓库内存 LF，工作区按平台 checkout
+* text=auto
+
+# .bat / .cmd 必须 CRLF（cmd 解析 LF 的行为不可靠，尤其带标签/goto 时）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 二进制
+*.png binary
+*.jpg binary
+*.ico binary
+*.pkl binary
+*.exe binary
+*.dll binary

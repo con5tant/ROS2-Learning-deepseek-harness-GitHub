@@ -1,0 +1,28 @@
+# colcon
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# ROS 运行期日志（适配层把 ROS_LOG_DIR 指向这里）
+.ros/
+
+# 编辑器：只提交共享配置，个人覆盖不提交
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+.idea/
+
+# Windows
+Thumbs.db
+desktop.ini
