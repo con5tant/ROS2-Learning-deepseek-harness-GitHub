@@ -10,6 +10,9 @@
 # 全量（和 CI 完全一致）
 pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1
 
+# 全新 checkout：没有 .venv，让门禁先建
+pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Bootstrap
+
 # 只跑静态检查（改 Python 时最快，约 2 秒）
 pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Stage python
 

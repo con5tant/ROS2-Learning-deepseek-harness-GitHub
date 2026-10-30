@@ -26,10 +26,14 @@
     覆盖配置里的 UserWorkspace。CI 把仓库 checkout 到别的目录时用这个参数，
     脚本会生成一份临时配置（原配置只覆盖 UserWorkspace，其余照抄），再传给子脚本。
 
+.PARAMETER Bootstrap
+    .venv 不存在时先跑 tools\Setup-Ros2PyEnv.ps1 建好（首次跑或 CI 全新 checkout 时用）。
+    不加这个开关就按"环境已就绪"处理，缺 .venv 会让 Python 阶段明确失败。
+
 .EXAMPLE
     pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1
     pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Stage python
-    pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Workspace D:\actions-runner\_work\ws\ws
+    pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Workspace D:\actions-runner\_work\ws\ws -Bootstrap
 #>
 [CmdletBinding()]
 param(
@@ -37,7 +41,8 @@ param(
     [ValidateSet('all', 'build', 'test', 'python')]
     [string]$Stage = 'all',
     [switch]$SkipBuild,
-    [string]$Workspace
+    [string]$Workspace,
+    [switch]$Bootstrap
 )
 
 $ErrorActionPreference = 'Stop'
@@ -162,7 +167,15 @@ if ($results[0].Ok) {
     if ($Stage -in @('all', 'python')) {
         Invoke-Stage 'Python（ruff check / format / pytest）' {
             if (-not (Test-Path -LiteralPath $VenvPython)) {
-                throw "没有 .venv：先跑 $Workspace\tools\Setup-Ros2PyEnv.ps1"
+                if (-not $Bootstrap) {
+                    throw "没有 .venv：先跑 $Workspace\tools\Setup-Ros2PyEnv.ps1（或给本脚本加 -Bootstrap）"
+                }
+                $setup = Join-Path $Workspace 'tools\Setup-Ros2PyEnv.ps1'
+                Write-Host "  .venv 不存在，先跑 $setup" -ForegroundColor Yellow
+                & $setup | ForEach-Object { Write-Host "  $_" }
+                if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $VenvPython)) {
+                    throw '.venv 初始化失败'
+                }
             }
             Push-Location $Workspace
             try {

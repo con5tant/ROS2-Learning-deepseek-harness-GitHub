@@ -32,7 +32,8 @@ jobs:
         env:
           ROS2_CI_CONFIG: D:\deepseek project\config\ros2.config.psd1
         run: |
-          pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Workspace '${{ github.workspace }}'
+          pwsh -NoProfile -File .\tools\ci\Run-Ci.ps1 -Workspace '${{ github.workspace }}' -Bootstrap
+        # -Bootstrap：checkout 里没有 .venv（被 .gitignore 排除），首次跑会先建好
         # Run-Ci.ps1 失败即返回非 0，本步骤自动标红，不必额外判断
 
       - name: 结果写入 Job Summary
